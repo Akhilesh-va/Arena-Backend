@@ -65,4 +65,10 @@ If these are missing, media upload endpoints will fail (profile photo, etc.).
 - [ ] `CLOUDINARY_API_SECRET`
 - [ ] `CORS_ORIGINS` = your frontend / app URL(s) (e.g. `https://yourapp.vercel.app` or your Android app’s backend URL if you use one)
 
-**Note:** Your Android app’s `API_BASE_URL` must point to the Vercel deployment URL (e.g. `https://your-api.vercel.app/api/v1/`). If the API is under a path (e.g. `/api`), set `API_BASE_PATH` on Vercel to match.
+**Note:** Your Android app’s `API_BASE_URL` must point to the Vercel deployment URL (e.g. `https://arena-backend-taav.vercel.app/api/v1/`). The serverless function is at `/api`; use paths like `/api/v1/health`, `/api/v1/auth/login`. See also "Why the function was crashing" below.
+
+---
+
+## Why the function was crashing (500 FUNCTION_INVOCATION_FAILED)
+
+The backend uses `app.listen()` (long-running server). On Vercel each request runs a **serverless function**—no persistent process. If Vercel ran `dist/index.js`, it would call `app.listen()` and then exit or throw. **Fix:** Use the serverless entry `api/index.js` (connects DB/Firebase once, then forwards requests to Express). Commit `api/index.js` and `vercel.json`, redeploy, and set all required env vars in Vercel so init does not throw.
