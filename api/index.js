@@ -1,6 +1,6 @@
 /**
- * Vercel serverless entry. Do not use app.listen() here; Vercel invokes this per request.
- * Build with: npm run build (tsc), then this file requires from dist/.
+ * Vercel serverless entry when "Root Directory" is set to "backend".
+ * Build: npm run build (tsc). Do not use app.listen() here.
  */
 const { app } = require('../dist/app');
 const { connectDatabase } = require('../dist/config/database');
@@ -16,6 +16,17 @@ async function ensureInit() {
 }
 
 module.exports = async (req, res) => {
-  await ensureInit();
-  app(req, res);
+  try {
+    await ensureInit();
+    app(req, res);
+  } catch (err) {
+    console.error('Serverless init error:', err);
+    res.status(503).setHeader('Content-Type', 'application/json').end(
+      JSON.stringify({
+        error: 'Service temporarily unavailable',
+        message: err.message || String(err),
+        code: 'INIT_FAILED',
+      })
+    );
+  }
 };
