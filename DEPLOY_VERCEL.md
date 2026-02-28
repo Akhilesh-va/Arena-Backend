@@ -1,6 +1,18 @@
 # Deploy Arena backend to Vercel
 
-## Option A: Deploy from **repo root** (recommended)
+## Recommended: Set Root Directory to `backend`
+
+In Vercel: **Project → Settings → General → Root Directory** → set to **`backend`** → Save. Then redeploy.
+
+- Vercel will use `backend/vercel.json` and `backend/api/index.js`.
+- Build runs inside `backend/` and creates `backend/dist/`.
+- No repo-root `api/` or path tricks; fewer ways to break.
+
+After deploy, use: `https://your-project.vercel.app/api/v1/health` (note **/api/v1/** not `/api/health`).
+
+---
+
+## Option A: Deploy from **repo root** (Root Directory left empty)
 
 Use this if your Vercel project is connected to the whole repo and **Root Directory** is left empty or is the repo root.
 

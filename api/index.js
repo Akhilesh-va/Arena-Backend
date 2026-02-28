@@ -18,6 +18,8 @@ async function ensureInit() {
 module.exports = async (req, res) => {
   try {
     await ensureInit();
+    if (req.url === '/api/health') req.url = '/health';
+    else if (req.url === '/api/ready') req.url = '/ready';
     app(req, res);
   } catch (err) {
     console.error('Serverless init error:', err);
