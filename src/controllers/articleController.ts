@@ -49,7 +49,8 @@ export async function getArticlesByAuthor(
     const { articles, total } = await articleService.getArticlesByAuthor(
       authorId,
       page,
-      limit
+      limit,
+      req.userId
     );
     res.json({ articles, total, page, limit });
   } catch (e) {

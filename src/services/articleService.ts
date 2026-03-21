@@ -52,16 +52,47 @@ export async function getArticleById(
   };
 }
 
+type ArticleWithEngagement = IArticle & { isLiked: boolean; isSaved: boolean };
+
 export async function getArticlesByAuthor(
   authorId: string,
   page: number,
-  limit: number
-): Promise<{ articles: IArticle[]; total: number }> {
+  limit: number,
+  currentUserId?: string
+): Promise<{ articles: ArticleWithEngagement[]; total: number }> {
   const [articles, total] = await Promise.all([
     ArticleModel.find({ authorId }).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
     ArticleModel.countDocuments({ authorId }),
   ]);
-  return { articles, total };
+  if (!currentUserId || articles.length === 0) {
+    return {
+      articles: articles.map((a) => ({ ...a, isLiked: false, isSaved: false })),
+      total,
+    };
+  }
+  const articleIds = articles.map((a) => a._id);
+  const [articleLikes, savedArticles] = await Promise.all([
+    LikeModel.find({
+      userId: currentUserId,
+      targetType: 'article',
+      targetId: { $in: articleIds },
+    })
+      .select('targetId')
+      .lean(),
+    SavedArticleModel.find({ userId: currentUserId, articleId: { $in: articleIds } })
+      .select('articleId')
+      .lean(),
+  ]);
+  const likedSet = new Set(articleLikes.map((l) => l.targetId.toString()));
+  const savedSet = new Set(savedArticles.map((s) => s.articleId.toString()));
+  return {
+    articles: articles.map((a) => ({
+      ...a,
+      isLiked: likedSet.has(a._id.toString()),
+      isSaved: savedSet.has(a._id.toString()),
+    })),
+    total,
+  };
 }
 
 export async function updateArticle(

@@ -54,17 +54,102 @@ export async function getPostById(
   };
 }
 
+type PostWithEngagement = IPost & { isLiked: boolean; isSaved: boolean };
+
 export async function getPostsByAuthor(
   authorId: string,
   page: number,
   limit: number,
   currentUserId?: string
-): Promise<{ posts: IPost[]; total: number }> {
+): Promise<{ posts: PostWithEngagement[]; total: number }> {
   const [posts, total] = await Promise.all([
     PostModel.find({ authorId }).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
     PostModel.countDocuments({ authorId }),
   ]);
-  return { posts, total };
+  if (!currentUserId || posts.length === 0) {
+    return {
+      posts: posts.map((p) => ({ ...p, isLiked: false, isSaved: false })),
+      total,
+    };
+  }
+  const postIds = posts.map((p) => p._id);
+  const [postLikes, savedPosts] = await Promise.all([
+    LikeModel.find({
+      userId: currentUserId,
+      targetType: 'post',
+      targetId: { $in: postIds },
+    })
+      .select('targetId')
+      .lean(),
+    SavedPostModel.find({ userId: currentUserId, postId: { $in: postIds } })
+      .select('postId')
+      .lean(),
+  ]);
+  const likedSet = new Set(postLikes.map((l) => l.targetId.toString()));
+  const savedSet = new Set(savedPosts.map((s) => s.postId.toString()));
+  return {
+    posts: posts.map((p) => ({
+      ...p,
+      isLiked: likedSet.has(p._id.toString()),
+      isSaved: savedSet.has(p._id.toString()),
+    })),
+    total,
+  };
+}
+
+export async function getSavedPosts(
+  userId: string,
+  page: number,
+  limit: number
+): Promise<{ posts: Array<IPost & { author?: { _id: string; displayName: string; photoUrl?: string }; isLiked: boolean; isSaved: boolean }>; total: number }> {
+  const skip = (page - 1) * limit;
+  const [savedRows, total] = await Promise.all([
+    SavedPostModel.find({ userId })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+    SavedPostModel.countDocuments({ userId }),
+  ]);
+  if (savedRows.length === 0) {
+    return { posts: [], total };
+  }
+  const postIds = savedRows.map((s) => s.postId);
+  const posts = await PostModel.find({ _id: { $in: postIds } }).lean();
+  const postMap = new Map(posts.map((p) => [p._id.toString(), p]));
+  const orderedPosts = postIds
+    .map((id) => postMap.get(id.toString()))
+    .filter((p): p is NonNullable<typeof p> => p != null);
+
+  const authorIds = [...new Set(orderedPosts.map((p) => p.authorId.toString()))];
+  const authors = await UserModel.find({ _id: { $in: authorIds } })
+    .select('displayName photoUrl')
+    .lean();
+  const authorMap = new Map(authors.map((a) => [a._id.toString(), a]));
+
+  const oidList = orderedPosts.map((p) => p._id);
+  const postLikes = await LikeModel.find({
+    userId,
+    targetType: 'post',
+    targetId: { $in: oidList },
+  })
+    .select('targetId')
+    .lean();
+  const likedSet = new Set(postLikes.map((l) => l.targetId.toString()));
+
+  const enriched = orderedPosts.map((p) => {
+    const author = authorMap.get(p.authorId.toString());
+    return {
+      ...p,
+      author: author
+        ? { _id: author._id.toString(), displayName: author.displayName, photoUrl: author.photoUrl }
+        : undefined,
+      isLiked: likedSet.has(p._id.toString()),
+      isSaved: true,
+    };
+  });
+
+  return { posts: enriched, total };
 }
 
 export async function updatePost(

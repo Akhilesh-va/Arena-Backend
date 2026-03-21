@@ -20,9 +20,12 @@ router.post(
 );
 
 router.get(
-  '/:id',
-  validate([param('id').isMongoId()]),
-  postController.getPost
+  '/saved',
+  validate([
+    query('page').optional().isInt({ min: 1 }),
+    query('limit').optional().isInt({ min: 1, max: 50 }),
+  ]),
+  postController.getSavedPosts
 );
 router.get(
   '/author/:authorId',
@@ -32,6 +35,11 @@ router.get(
     query('limit').optional().isInt({ min: 1, max: 50 }),
   ]),
   postController.getPostsByAuthor
+);
+router.get(
+  '/:id',
+  validate([param('id').isMongoId()]),
+  postController.getPost
 );
 router.patch(
   '/:id',

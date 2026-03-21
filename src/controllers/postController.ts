@@ -150,3 +150,18 @@ export async function savePost(
     next(e);
   }
 }
+
+export async function getSavedPosts(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const { posts, total } = await postService.getSavedPosts(req.userId!, page, limit);
+    res.json({ posts, total, page, limit });
+  } catch (e) {
+    next(e);
+  }
+}
